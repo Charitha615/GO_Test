@@ -6,10 +6,11 @@ import { createUser } from './api';
 const CreateUserScreen = () => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setpPassword] = useState('');
 
   const handleCreateUser = async () => {
     try {
-      const newUser = await createUser({ username, email });
+      const newUser = await createUser({ username, email , password});
       console.log('User created:', newUser);
       // You can navigate to another screen or update the UI as needed
     } catch (error) {
@@ -29,6 +30,12 @@ const CreateUserScreen = () => {
         placeholder="Email"
         value={email}
         onChangeText={(text) => setEmail(text)}
+      />
+
+<TextInput
+        placeholder="password"
+        value={password}
+        onChangeText={(text) => setpPassword(text)}
       />
       <Button title="Create User" onPress={handleCreateUser} />
     </View>
