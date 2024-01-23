@@ -1,16 +1,17 @@
-// internal/handlers/user_handler.go
+// handlers/user_handler.go
 package handlers
 
 import (
 	"backend/internal/models"
 	"context"
-	"fmt"
-	"github.com/gin-gonic/gin"
+	"log"
+	"net/http"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"log"
-	"net/http"
 )
 
 type UserHandler struct {
@@ -23,12 +24,17 @@ func NewUserHandler(db *mongo.Database) *UserHandler {
 	}
 }
 
-func (h *UserHandler) CreateUser(c *gin.Context) {
+func (h *UserHandler) logRequest(c *fiber.Ctx) {
+	log.Printf("[%s] %s %s", time.Now().Format("2006-01-02 15:04:05"), c.Method(), c.OriginalURL())
+}
+
+func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
+	h.logRequest(c)
+
 	var newUser models.User
 
-	if err := c.ShouldBindJSON(&newUser); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+	if err := c.BodyParser(&newUser); err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	// Assign a new ID to the user
@@ -37,70 +43,61 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	// Insert the user into the MongoDB collection
 	_, err := h.UserCollection.InsertOne(context.TODO(), newUser)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
-		return
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create user"})
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "User created successfully", "user": newUser})
+	return c.Status(http.StatusCreated).JSON(fiber.Map{"message": "User created successfully", "user": newUser})
 }
 
-func (h *UserHandler) GetUsers(c *gin.Context) {
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
+	h.logRequest(c)
+
 	// Implementation to get all users
 	cursor, err := h.UserCollection.Find(context.TODO(), bson.M{})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
-		return
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch users"})
 	}
 	defer cursor.Close(context.TODO())
 
 	var users []models.User
 	if err := cursor.All(context.TODO(), &users); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode users"})
-		return
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to decode users"})
 	}
 
 	// Return a single JSON object with a "users" key
-	c.JSON(http.StatusOK, gin.H{"users": users})
+	return c.JSON(fiber.Map{"users": users})
 }
 
-func (h *UserHandler) GetUserByID(c *gin.Context) {
+func (h *UserHandler) GetUserByID(c *fiber.Ctx) error {
+	h.logRequest(c)
 
-	userID := c.Param("id")
+	userID := c.Params("id")
 
 	objectID, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-		return
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid user ID"})
 	}
-	fmt.Printf("objectID IS %s document(s)\n", objectID)
 
 	var user models.User
-	err = h.UserCollection.FindOne(context.TODO(), bson.M{"_id": userID}).Decode(&user)
+	err = h.UserCollection.FindOne(context.TODO(), bson.M{"_id": objectID}).Decode(&user)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-			return
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user"})
-		return
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch user"})
 	}
 
-	c.JSON(http.StatusOK, user)
+	return c.JSON(user)
 }
 
-func (h *UserHandler) UpdateUser(c *gin.Context) {
-	userID := c.Param("id")
+func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
+	h.logRequest(c)
 
-	//objectID, err := primitive.ObjectIDFromHex(userID)
-	//if err != nil {
-	//	c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-	//	return
-	//}
+	userID := c.Params("id")
 
 	var updatedUser models.User
-	if err := c.ShouldBindJSON(&updatedUser); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+	if err := c.BodyParser(&updatedUser); err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	result, err := h.UserCollection.UpdateOne(
@@ -114,44 +111,29 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 		},
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
-		return
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update user"})
 	}
 
 	if result.ModifiedCount == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-		return
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "User updated successfully"})
+	return c.Status(http.StatusOK).JSON(fiber.Map{"message": "User updated successfully"})
 }
 
-func (h *UserHandler) DeleteUser(c *gin.Context) {
-	userID := c.Param("id")
-	log.Printf("Error fetching user with ID %s: ", userID)
+func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
+	h.logRequest(c)
 
-	//objectID, err := primitive.ObjectIDFromHex(userID)
-	//log.Printf("objectID %s: ", objectID)
-	//if err != nil {
-	//	c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-	//	return
-	//}
-	//fmt.Printf("objectID IS %s document(s)\n", objectID)
+	userID := c.Params("id")
 
 	result, err := h.UserCollection.DeleteOne(context.TODO(), bson.M{"_id": userID})
-
-	log.Printf("result ID %s: ", result)
-	log.Printf("Error  ID %s: ", err)
-	fmt.Printf("Deleted %d document(s)\n", result.DeletedCount)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete user"})
-		return
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete user"})
 	}
 
 	if result.DeletedCount == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-		return
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
+	return c.Status(http.StatusOK).JSON(fiber.Map{"message": "User deleted successfully"})
 }

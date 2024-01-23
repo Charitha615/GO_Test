@@ -1,4 +1,3 @@
-// App.js
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -12,7 +11,10 @@ const App = () => {
   return (
     <NavigationContainer>
       <Stack.Navigator initialRouteName="UserList">
-        <Stack.Screen name="UserList" component={UserListScreen} />
+        <Stack.Screen
+          name="UserList"
+          component={props => <UserListScreen {...props} />}
+        />
         <Stack.Screen name="CreateUser" component={CreateUserScreen} />
         <Stack.Screen name="UpdateUser" component={UpdateUserScreen} />
       </Stack.Navigator>
@@ -21,6 +23,8 @@ const App = () => {
 };
 
 export default App;
+
+
 
 
 
