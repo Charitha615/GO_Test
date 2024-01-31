@@ -1,7 +1,7 @@
 // api.js
 import axios from 'axios';
 
-const BASE_URL = 'http://localhost:8080'; // Replace with your actual backend URL
+const BASE_URL = 'http://192.168.1.4:8080'; // Replace with your actual backend URL
 
 const api = axios.create({
     baseURL: BASE_URL,
@@ -14,15 +14,26 @@ const api = axios.create({
 
   export const getUsers = async () => {
     try {
-      const response = await api.get('/users');
-      console.log('Response:', response.data);
+      const response = await api.get('/usersall');    
+      console.log('Response:', response.data.users);
       return response.data;
     } catch (error) {
-      console.error('Error fetching users:', error);
+      console.error('Error fetching users: Get', error);
+      throw error;  
+    }  
+  };
+  
+  export const getAUser = async (id) => {
+    try {
+      console.log("ID is ",id);
+      const response = await api.get(`/users/${id}`);
+      console.log("ID data is  ",response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching user:', error);
       throw error;
     }
   };
-  
 
 export const createUser = async (userData) => {
   try {

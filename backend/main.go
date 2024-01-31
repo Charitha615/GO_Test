@@ -3,12 +3,12 @@ package main
 
 import (
 	"log"
-	"net/http"
 	"os"
 
 	"backend/internal/handlers"
 	"backend/pkg/database/mongodb"
-	"github.com/gin-gonic/gin"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
 )
 
@@ -19,7 +19,10 @@ func init() {
 }
 
 func main() {
-	router := gin.Default()
+	app := fiber.New()
+
+	// Use CORS middleware
+	app.Use(cors.New())
 
 	// Initialize MongoDB connection
 	mongoDB := mongodb.InitMongoDB()
@@ -29,11 +32,11 @@ func main() {
 	userHandler := handlers.NewUserHandler(mongoDB.Database)
 
 	// Routes
-	router.GET("/users", userHandler.GetUsers)
-	router.GET("/users/:id", userHandler.GetUserByID)
-	router.POST("/users", userHandler.CreateUser)
-	router.PUT("/users/:id", userHandler.UpdateUser)
-	router.DELETE("/users/:id", userHandler.DeleteUser)
+	app.Get("/usersall", userHandler.GetUsers)
+	app.Get("/users/:id", userHandler.GetUserByID)
+	app.Post("/users", userHandler.CreateUser)
+	app.Put("/users/:id", userHandler.UpdateUser)
+	app.Delete("/users/:id", userHandler.DeleteUser)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -41,5 +44,5 @@ func main() {
 	}
 
 	log.Printf("Server is running on port %s", port)
-	log.Fatal(http.ListenAndServe(":"+port, router))
+	log.Fatal(app.Listen(":" + port))
 }
