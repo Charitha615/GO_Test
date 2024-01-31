@@ -4,6 +4,7 @@ package handlers
 import (
 	"backend/internal/models"
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -74,12 +75,13 @@ func (h *UserHandler) GetUserByID(c *fiber.Ctx) error {
 	userID := c.Params("id")
 
 	objectID, err := primitive.ObjectIDFromHex(userID)
+	fmt.Println(objectID)
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid user ID"})
 	}
 
 	var user models.User
-	err = h.UserCollection.FindOne(context.TODO(), bson.M{"_id": objectID}).Decode(&user)
+	err = h.UserCollection.FindOne(context.TODO(), bson.M{"_id": userID}).Decode(&user)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
